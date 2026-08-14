@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simq"
+version = "0.1.0"
+description = "Job orchestration for long-running simulations: FastAPI control plane, Postgres SKIP LOCKED queue, lease-based workers"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "psycopg[binary]>=3.1",
+    "psycopg-pool>=3.2",
+    "prometheus-client>=0.20",
+]
+
+[project.optional-dependencies]
+# The real simulation workload. Any registered workload works without it;
+# fleet_day / fleet_sweep jobs fail with a clear error if it is missing.
+fleet = ["fleet-day-sim @ git+https://github.com/chenggma/fleet-day-sim"]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+simq-worker = "simq.worker:main"
+
+[tool.setuptools]
+packages = ["simq", "simq.workloads"]
+
+[tool.setuptools.package-data]
+simq = ["static/*", "migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

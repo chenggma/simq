@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: simq
+          POSTGRES_PASSWORD: simq
+          POSTGRES_DB: simq_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U simq"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,fleet]"
+      - run: python -m pytest tests/ -v
+        env:
+          SIMQ_TEST_DATABASE_URL: postgresql://simq:simq@127.0.0.1:5432/simq_test
+
+  compose-smoke:
+    # Build the real images and run the full stack: submit a job through
+    # the API and watch a containerised worker complete it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build --scale worker=2
+      - name: wait for API
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8000/healthz && exit 0 || sleep 2
+          done
+          docker compose logs; exit 1
+      - name: submit job and wait for success
+        run: |
+          id=$(curl -fsS -X POST http://localhost:8000/api/jobs \
+            -H 'content-type: application/json' \
+            -d '{"type":"synthetic","params":{"duration_s":2,"steps":4}}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          echo "job $id"
+          for i in $(seq 1 60); do
+            state=$(curl -fsS http://localhost:8000/api/jobs/$id \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')
+            echo "state=$state"
+            [ "$state" = succeeded ] && exit 0
+            [ "$state" = failed ] && docker compose logs && exit 1
+            sleep 2
+          done
+          docker compose logs; exit 1
+      - name: real workload end-to-end (fleet_day)
+        run: |
+          id=$(curl -fsS -X POST http://localhost:8000/api/jobs \
+            -H 'content-type: application/json' \
+            -d '{"type":"fleet_day","params":{"n_ev":20}}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          for i in $(seq 1 60); do
+            state=$(curl -fsS http://localhost:8000/api/jobs/$id \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')
+            [ "$state" = succeeded ] && \
+              curl -fsS http://localhost:8000/api/jobs/$id | \
+              python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; assert r["completion_pct"]==100.0, r; print("fleet_day OK:", r["cost_usd_day"])' && exit 0
+            [ "$state" = failed ] && docker compose logs && exit 1
+            sleep 2
+          done
+          docker compose logs; exit 1

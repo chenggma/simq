@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: simq
+      POSTGRES_PASSWORD: simq
+      POSTGRES_DB: simq
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simq -d simq"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  api:
+    build: .
+    environment:
+      SIMQ_DATABASE_URL: postgresql://simq:simq@db/simq
+    ports:
+      - "8000:8000"
+    volumes:
+      - artifacts:/data/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Scale with: docker compose up -d --scale worker=4
+  worker:
+    build: .
+    command: simq-worker
+    environment:
+      SIMQ_DATABASE_URL: postgresql://simq:simq@db/simq
+    volumes:
+      - artifacts:/data/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+    healthcheck:
+      disable: true
+    # Give the worker time to release its current job on shutdown.
+    stop_grace_period: 30s
+
+volumes:
+  pgdata:
+  artifacts:

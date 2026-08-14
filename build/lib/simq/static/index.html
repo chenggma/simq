@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>simq</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>simq</h1>
+  <div id="stats" class="chips"></div>
+  <label class="auto"><input type="checkbox" id="autorefresh" checked> auto-refresh</label>
+</header>
+
+<main>
+  <section class="panel" id="submit-panel">
+    <h2>Submit a job</h2>
+    <div class="row">
+      <label>workload <select id="wl-select"></select></label>
+      <label>priority <input id="priority" type="number" value="0" style="width:5em"></label>
+      <label>timeout&nbsp;s <input id="timeout" type="number" placeholder="600" style="width:6em"></label>
+    </div>
+    <p id="wl-desc" class="muted"></p>
+    <textarea id="params" rows="6" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="submit-btn">Submit</button>
+      <span id="submit-msg" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Jobs</h2>
+    <table id="jobs">
+      <thead><tr>
+        <th>id</th><th>type</th><th>state</th><th>att</th>
+        <th>progress</th><th>created</th><th>took</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="detail" hidden>
+    <h2>Job <span id="d-id"></span> <button id="d-close" class="link">close</button></h2>
+    <div id="d-body"></div>
+    <h3>Events</h3><div id="d-events"></div>
+    <h3>Log</h3><pre id="d-log" class="log"></pre>
+    <h3>Result</h3><pre id="d-result" class="log"></pre>
+  </section>
+
+  <section class="panel">
+    <h2>Compare two runs</h2>
+    <div class="row">
+      <select id="cmp-a"></select>
+      <select id="cmp-b"></select>
+      <button id="cmp-btn">Compare</button>
+    </div>
+    <div id="cmp-out"></div>
+  </section>
+</main>
+<footer class="muted">simq — Postgres-backed job orchestration for simulation workloads</footer>
+<script src="app.js"></script>
+</body>
+</html>

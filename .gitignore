@@ -6,3 +6,4 @@ artifacts/
 .env
 .pytest_cache/
 dist/
+build/
